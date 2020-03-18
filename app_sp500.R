@@ -48,7 +48,7 @@ server <- function(input,output,session){
   
   observeEvent(c(input$sp,input$days),{
     output$company <- renderText({
-      comp <<- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(Company))
+      comp <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(Company))
       comp})
    output$sector <- renderText({
      sect <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(GICS.Sector))
@@ -63,19 +63,19 @@ server <- function(input,output,session){
       add_trace(y =~DailyAVG,name = "High/LowAVG") })
     output$dt <- renderDataTable(datatable(ticker_df,rownames = FALSE))
     output$current <- renderText({
-      current <<- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% slice(1) %>% dplyr::select(price.close)
+      current <- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% slice(1) %>% dplyr::select(price.close)
       paste0("$",round(current$price.close,2))})
     output$days30 <- renderText({
-      days30 <<- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
+      days30 <- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
         slice(1:30) %>% dplyr::select(price.close) %>% summarise(AVG30 = mean(price.close))
       paste0("$",round(days30$AVG30,2))})
     output$days30_med <- renderText({
-      days30_med <<- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
+      days30_med <- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
         slice(1:30) %>% dplyr::select(price.close) %>% summarise(MED30 = median(price.close))
       paste0("$",round(days30_med$MED30,2))})
     output$dygraph <- renderDygraph({
       sect <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(GICS.Sector))
-      sp_sector_select <<- sp %>% dplyr::filter(GICS.Sector  == sect) %>% dplyr::select(Tickers)
+      sp_sector_select <- sp %>% dplyr::filter(GICS.Sector  == sect) %>% dplyr::select(Tickers)
       sp_tib <- as_tibble(sp_list$df.tickers %>% 
                             dplyr::filter(ticker == sp_sector_select$Tickers) %>%
                             dplyr::arrange(desc(ref.date)) %>% 
