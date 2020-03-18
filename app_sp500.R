@@ -1,7 +1,6 @@
 library(pacman)
 pacman::p_load(shiny,BatchGetSymbols,shinydashboard,dplyr,plotly,tidyquant,xts,tibble,dygraphs,DT)
 
-
 first.date <- Sys.Date()-2000
 sp <- GetSP500Stocks()
 ovv <- "OVV"
