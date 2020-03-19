@@ -1,19 +1,31 @@
-library(pacman)
 pacman::p_load(shiny,BatchGetSymbols,shinydashboard,dplyr,plotly,tidyquant,xts,tibble,dygraphs,DT)
+
+setwd("~")
 
 first.date <- Sys.Date()-2000
 sp <- GetSP500Stocks()
 ovv <- "OVV"
 # sp_list <- BatchGetSymbols(tickers = sp$Tickers,
 #                            first.date = first.date,
-#                            last.date = Sys.Date(), 
+#                            last.date = Sys.Date(),
 #                            do.cache=TRUE)
+
+ovv_list <- BatchGetSymbols(tickers = ovv,
+                            first.date = first.date,
+                            last.date = Sys.Date(),
+                            do.cache=TRUE)
+
 
 ui <- dashboardPage(
   dashboardHeader(title = "Majestic Stocks"),
-  dashboardSidebar(),
+  dashboardSidebar(
+    sidebarMenu(
+    menuItem("SP500",tabName = "sp500"),
+    menuItem("Ovintiv",tabName = "ovv"))),
   dashboardBody(
-            box(selectInput("sp",label = "Select Stock",choices = sp$Tickers),
+    tabItems(
+      tabItem(tabName = "sp500",
+            box(selectizeInput("sp",label = "Select Stock",choices = sp$Tickers,selected = NULL, multiple = FALSE,options = NULL),
                 numericInput("days",label = "Days Back",min = 30,max = 1000,value = 90),
                 h4("Company Name"),
                 textOutput("company"),
@@ -34,12 +46,15 @@ ui <- dashboardPage(
                 textOutput("days30_med"),
                 #radioButtons()
                 width = 3),
-            box(plotlyOutput("line"),
+            box(h3("Company Stocks"),
+                plotlyOutput("line"),
                 br(),
                 h3("Sector Stocks"),
                 dygraphOutput("dygraph"),
-                DTOutput("dt"),
-                width = 9))
+                width = 9)),
+      tabItem(tabName = "ovv",
+            box(dygraphOutput("ovv_dygraph"),
+                DTOutput("ovv_df")))))
     )
 
 
@@ -47,7 +62,7 @@ server <- function(input,output,session){
   
   observeEvent(c(input$sp,input$days),{
     output$company <- renderText({
-      comp <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(Company))
+      comp <<- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(Company))
       comp})
    output$sector <- renderText({
      sect <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(GICS.Sector))
@@ -62,26 +77,32 @@ server <- function(input,output,session){
       add_trace(y =~DailyAVG,name = "High/LowAVG") })
     output$dt <- renderDataTable(datatable(ticker_df,rownames = FALSE))
     output$current <- renderText({
-      current <- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% slice(1) %>% dplyr::select(price.close)
+      current <<- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% slice(1) %>% dplyr::select(price.close)
       paste0("$",round(current$price.close,2))})
     output$days30 <- renderText({
-      days30 <- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
+      days30 <<- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
         slice(1:30) %>% dplyr::select(price.close) %>% summarise(AVG30 = mean(price.close))
       paste0("$",round(days30$AVG30,2))})
     output$days30_med <- renderText({
-      days30_med <- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
+      days30_med <<- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% 
         slice(1:30) %>% dplyr::select(price.close) %>% summarise(MED30 = median(price.close))
       paste0("$",round(days30_med$MED30,2))})
     output$dygraph <- renderDygraph({
       sect <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(GICS.Sector))
-      sp_sector_select <- sp %>% dplyr::filter(GICS.Sector  == sect) %>% dplyr::select(Tickers)
+      sp_sector_select <<- sp %>% dplyr::filter(GICS.Sector  == sect) %>% dplyr::select(Tickers)
       sp_tib <- as_tibble(sp_list$df.tickers %>% 
                             dplyr::filter(ticker == sp_sector_select$Tickers) %>%
                             dplyr::arrange(desc(ref.date)) %>% 
                             dplyr::slice(1:input$days))
       sp_xts <- xts(sp_tib %>% dplyr::select(price.close,ref.date),order.by = sp_tib$ref.date)
       dygraph(sp_xts) %>% dyRangeSelector()
-    })
+    })})
+  
+  output$ovv_df <- renderDT({datatable(ovv_list$df.tickers,rownames = FALSE)})
+  output$ovv_dygraph <- renderDygraph({
+    ovv_tib <- as_tibble(ovv_list$df.tickers)
+    ovv_xts <- xts(ovv_tib %>% dplyr::select(price.close,ref.date),order.by = ovv_tib$ref.date)
+    dygraph(ovv_xts) %>% dyRangeSelector()
   })
 }
 
