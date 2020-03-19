@@ -25,7 +25,7 @@ ui <- dashboardPage(
   dashboardBody(
     tabItems(
       tabItem(tabName = "sp500",
-            box(selectizeInput("sp",label = "Select Stock",choices = sp$Tickers,selected = NULL, multiple = FALSE,options = NULL),
+            box(selectizeInput("sp",label = "Select Stock",choices = sp$Tickers,selected = "MMM", multiple = FALSE,options = NULL),
                 numericInput("days",label = "Days Back",min = 30,max = 1000,value = 90),
                 h4("Company Name"),
                 textOutput("company"),
