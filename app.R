@@ -1,4 +1,5 @@
-pacman::p_load(shiny,BatchGetSymbols,shinydashboard,dplyr,plotly,tidyquant,xts,tibble,dygraphs,DT)
+pacman::p_load(shiny,BatchGetSymbols,shinydashboard,dplyr,plotly,tidyquant,
+               xts,tibble,dygraphs,DT,shinyWidgets)
 
 setwd("~")
 
@@ -6,9 +7,9 @@ first.date <- Sys.Date()-2000
 sp <- GetSP500Stocks()
 ovv <- "OVV"
 sp_list <- BatchGetSymbols(tickers = sp$Tickers,
-                          first.date = first.date,
-                          last.date = Sys.Date(),
-                          do.cache=TRUE)
+                           first.date = first.date,
+                           last.date = Sys.Date(),
+                           do.cache=TRUE)
 
 ovv_list <- BatchGetSymbols(tickers = ovv,
                             first.date = first.date,
@@ -20,42 +21,50 @@ ui <- dashboardPage(
   dashboardHeader(title = "Majestic Stocks"),
   dashboardSidebar(
     sidebarMenu(
-    menuItem("SP500",tabName = "sp500"),
-    menuItem("Ovintiv",tabName = "ovv"))),
+      menuItem("SP500",tabName = "sp500"),
+      menuItem("Ovintiv",tabName = "ovv"),
+      menuItem("Planner",tabName = "plan"))),
   dashboardBody(
     tabItems(
       tabItem(tabName = "sp500",
-            box(selectizeInput("sp",label = "Select Stock",choices = sp$Tickers,selected = "MMM", multiple = FALSE,options = NULL),
-                numericInput("days",label = "Days Back",min = 30,max = 1000,value = 90),
-                h4("Company Name"),
-                textOutput("company"),
-                br(),
-                h4("Sector"),
-                textOutput("sector"),
-                br(),
-                h4("Headquarters"),
-                textOutput("hq"),
-                br(),
-                h4("Yesterday's Closing Price"),
-                textOutput("current"),
-                br(),
-                h4("Last 30 Day AVG"),
-                textOutput("days30"),
-                br(),
-                h4("Last 30 Day Median"),
-                textOutput("days30_med"),
-                #radioButtons()
-                width = 3),
-            box(h3("Company Stocks"),
-                plotlyOutput("line"),
-                br(),
-                h3("Sector Stocks"),
-                dygraphOutput("dygraph"),
-                width = 9)),
+              box(selectizeInput("sp",label = "Select Stock",choices = sp$Tickers,selected = "MMM", multiple = FALSE,options = NULL),
+                  numericInput("days",label = "Days Back",min = 30,max = 1000,value = 90),
+                  h4("Company Name"),
+                  textOutput("company"),
+                  br(),
+                  h4("Sector"),
+                  textOutput("sector"),
+                  br(),
+                  h4("Headquarters"),
+                  textOutput("hq"),
+                  br(),
+                  h4("Yesterday's Closing Price"),
+                  textOutput("current"),
+                  br(),
+                  h4("Last 30 Day AVG"),
+                  textOutput("days30"),
+                  br(),
+                  h4("Last 30 Day Median"),
+                  textOutput("days30_med"),
+                  #radioButtons()
+                  width = 3),
+              box(h3("Company Stocks"),
+                  plotlyOutput("line"),
+                  br(),
+                  h3("Sector Stocks"),
+                  dygraphOutput("dygraph"),
+                  width = 9)),
       tabItem(tabName = "ovv",
-            box(dygraphOutput("ovv_dygraph"),
-                DTOutput("ovv_df")))))
-    )
+              box(dygraphOutput("ovv_dygraph"),
+                  DTOutput("ovv_df"))),
+      tabItem(tabName = "plan",
+              numericRangeInput("expense","Monthly Expenses",value = c(0,100),separator = "to"),
+              numericRangeInput("income","Monthly Income",value = c(0,100),separator = "to"),
+              numericRangeInput("assets","What are your total liquid/total assets?",value = c(0,200000),separator = "to"),
+              numericInput("sims","How many simulations to run?",value = 500,min = 20,max=1000),
+              actionButton("sim_run",label = "Run the Simulator"),
+              verbatimTextOutput("loop"),
+              verbatimTextOutput("result")))))
 
 
 server <- function(input,output,session){
@@ -64,17 +73,17 @@ server <- function(input,output,session){
     output$company <- renderText({
       comp <<- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(Company))
       comp})
-   output$sector <- renderText({
-     sect <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(GICS.Sector))
-     sect})
-   output$hq <- renderText({
-     hq <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(HQ.Location))
-     hq})
-   startDate <- Sys.Date() - input$days
-   ticker_df <- sp_list$df.tickers %>% dplyr::filter(ticker == input$sp) %>% 
-     dplyr::filter(ref.date > startDate) %>% dplyr::mutate(DailyAVG = (price.high + price.low)/2)
+    output$sector <- renderText({
+      sect <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(GICS.Sector))
+      sect})
+    output$hq <- renderText({
+      hq <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(HQ.Location))
+      hq})
+    startDate <- Sys.Date() - input$days
+    ticker_df <- sp_list$df.tickers %>% dplyr::filter(ticker == input$sp) %>% 
+      dplyr::filter(ref.date > startDate) %>% dplyr::mutate(DailyAVG = (price.high + price.low)/2)
     output$line <- renderPlotly({plot_ly(ticker_df,x=~ref.date,y=~price.close,type = "scatter",mode = "lines",name = "Closing Price") %>%
-      add_trace(y =~DailyAVG,name = "High/LowAVG") })
+        add_trace(y =~DailyAVG,name = "High/LowAVG") })
     output$dt <- renderDataTable(datatable(ticker_df,rownames = FALSE))
     output$current <- renderText({
       current <<- sp_list$df.tickers %>% filter(ticker == input$sp) %>% arrange(desc(ref.date)) %>% slice(1) %>% dplyr::select(price.close)
@@ -104,6 +113,22 @@ server <- function(input,output,session){
     ovv_xts <- xts(ovv_tib %>% dplyr::select(price.close,ref.date),order.by = ovv_tib$ref.date)
     dygraph(ovv_xts) %>% dyRangeSelector()
   })
+  
+  observeEvent(input$sim_run,{
+    result <- vector("numeric", input$sims)
+    for (run in 1:input$sims){
+      income <- sample(input$income[1]:input$income[2],1,replace = T)
+      expense <- sample(input$expense[1]:input$expense[2],1,replace = T)
+      margin <- income - expense
+      result[run] <- margin
+      print(margin)
+    }
+    resultAVG <- mean(result)
+    output$result <- renderPrint(resultAVG)
+  })
+
 }
 
 shinyApp(ui,server)
+
+
