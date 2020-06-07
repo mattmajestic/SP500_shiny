@@ -1,5 +1,18 @@
-pacman::p_load(shiny,BatchGetSymbols,shinydashboard,dplyr,plotly,tidyquant,
-               xts,tibble,dygraphs,DT,shinyWidgets)
+# pacman::p_load(shiny,BatchGetSymbols,shinydashboard,dplyr,plotly,tidyquant,
+#                xts,tibble,dygraphs,DT,shinyWidgets)
+library(shiny)
+library(BatchGetSymbols)
+library(shinydashboard)
+library(dplyr)
+library(plotly)
+library(tidyquant)
+library(xts)
+library(tibble)
+library(dygraphs)
+library(DT)
+library(shinyWidgets)
+library(scales)
+library(sparklyr)
 
 setwd("~")
 
@@ -58,13 +71,14 @@ ui <- dashboardPage(
               box(dygraphOutput("ovv_dygraph"),
                   DTOutput("ovv_df"))),
       tabItem(tabName = "plan",
+              box(title = "Set Your Current Situation",
+              numericInput("years","How many years in the future do you want to project?",value = 15),
               numericRangeInput("expense","Monthly Expenses",value = c(0,100),separator = "to"),
               numericRangeInput("income","Monthly Income",value = c(0,100),separator = "to"),
               numericRangeInput("assets","What are your total liquid/total assets?",value = c(0,200000),separator = "to"),
               numericInput("sims","How many simulations to run?",value = 500,min = 20,max=1000),
-              actionButton("sim_run",label = "Run the Simulator"),
-              verbatimTextOutput("loop"),
-              verbatimTextOutput("result")))))
+              actionButton("sim_run",label = "Run the Simulator")),
+              valueBoxOutput("life")))))
 
 
 server <- function(input,output,session){
@@ -124,11 +138,15 @@ server <- function(input,output,session){
       print(margin)
     }
     resultAVG <- mean(result)
-    output$result <- renderPrint(resultAVG)
+    annual_growth <- vector("numeric", input$years)
+    years_project <- resultAVG * 12 * input$years + input$assets 
+    output$life <- renderValueBox({ 
+      valueBox(scales::dollar(years_project[2]),subtitle = "Projected")})
   })
 
 }
 
+# options(shiny.host = "10.0.0.230")
+# options(shiny.port = 8080)
 shinyApp(ui,server)
-
 
