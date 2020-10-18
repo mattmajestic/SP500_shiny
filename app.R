@@ -14,7 +14,7 @@ library(shinyWidgets)
 library(scales)
 library(sparklyr)
 
-setwd("~")
+# setwd("~")
 
 first.date <- Sys.Date()-2000
 sp <- GetSP500Stocks()
