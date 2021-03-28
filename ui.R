@@ -3,6 +3,7 @@ ui <- dashboardPage(
   dashboardSidebar(
     sidebarMenu(
       menuItem("SP500",tabName = "sp500"),
+      menuItem("Crypto",tabName = "crypto"),
       menuItem("Ovintiv",tabName = "ovv"),
       menuItem("Planner",tabName = "plan"))),
   dashboardBody(
@@ -32,9 +33,25 @@ ui <- dashboardPage(
               box(h3("Company Stocks"),
                   plotlyOutput("line"),
                   br(),
-                  h3("Sector Stocks"),
-                  dygraphOutput("dygraph"),
-                  width = 9)),
+                  h3("Prophet Forecast by Facebook"),
+                  plotOutput("sp_forecast"),
+                  #dygraphOutput("dygraph"),
+                  width = 9),
+              # dygraphOutput("predict")
+              ),
+      tabItem(tabName = "crypto",
+              fluidPage(
+                fluidRow(
+              box(width = 12,
+                  footer = "source: CoinMarket Developer API",
+                  selectizeInput("crypto",label = "Select Coin",choices = all_coins_select,selected = "BTC", multiple = FALSE,options = NULL),
+                  DTOutput("crypto_df"))),
+              br(),
+              br(),
+              h4("Average USD Price by Year established (Cohort Cut)"),
+              fluidRow(
+                  plotlyOutput("crypto_plotly")),
+                  )),
       tabItem(tabName = "ovv",
               box(dygraphOutput("ovv_dygraph"),
                   DTOutput("ovv_df"))),

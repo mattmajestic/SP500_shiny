@@ -1,5 +1,6 @@
 server <- function(input,output,session){
-  
+  ss_tv <- reactiveValues(sp_list = list())
+  rv <- reactiveValues()
   observeEvent(c(input$sp,input$days),{
     output$company <- renderText({
       comp <<- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(Company))
@@ -11,8 +12,13 @@ server <- function(input,output,session){
       hq <- as.character(sp %>% dplyr::filter(Tickers == input$sp) %>% dplyr::select(HQ.Location))
       hq})
     startDate <- Sys.Date() - input$days
+    sp_list <- BatchGetSymbols(tickers = as.character(input$sp),
+                               first.date = first.date,
+                               last.date = Sys.Date(),
+                               do.cache=TRUE)
     ticker_df <- sp_list$df.tickers %>% dplyr::filter(ticker == input$sp) %>% 
       dplyr::filter(ref.date > startDate) %>% dplyr::mutate(DailyAVG = (price.high + price.low)/2)
+    rv$ticker_df <- ticker_df
     output$line <- renderPlotly({plot_ly(ticker_df,x=~ref.date,y=~price.close,type = "scatter",mode = "lines",name = "Closing Price") %>%
         add_trace(y =~DailyAVG,name = "High/LowAVG") })
     output$dt <- renderDataTable(datatable(ticker_df,rownames = FALSE))
@@ -34,15 +40,53 @@ server <- function(input,output,session){
                             dplyr::filter(ticker == sp_sector_select$Tickers) %>%
                             dplyr::arrange(desc(ref.date)) %>% 
                             dplyr::slice(1:input$days))
-      sp_xts <- xts(sp_tib %>% dplyr::select(price.close,ref.date),order.by = sp_tib$ref.date)
-      dygraph(sp_xts) %>% dyRangeSelector()
-    })})
+      rv$sp_xts <- xts(sp_tib %>% dplyr::select(price.close,ref.date),order.by = sp_tib$ref.date)
+      dygraph(rv$sp_xts) %>% dyRangeSelector()
+    })
+    output$predict <- renderDygraph({
+
+     dygraph(rv$sp_xts) %>% dyRangeSelector()
+    })
+    })
   
   output$ovv_df <- renderDT({datatable(ovv_list$df.tickers,rownames = FALSE)})
   output$ovv_dygraph <- renderDygraph({
     ovv_tib <- as_tibble(ovv_list$df.tickers)
     ovv_xts <- xts(ovv_tib %>% dplyr::select(price.close,ref.date),order.by = ovv_tib$ref.date)
     dygraph(ovv_xts) %>% dyRangeSelector()
+  })
+  
+  
+  observeEvent(input$crypto,{
+  rv$all_coins_selected <- all_coins %>%
+    as.data.frame() %>%
+    dplyr::filter(name == input$crypto)
+  output$crypto_df <- renderDT({datatable(rv$all_coins_selected,rownames = FALSE,options = list(scrollX = TRUE))})
+  })
+  
+  output$crypto_plotly <- renderPlotly({
+    plot_ly(annual_mean_usd_data,
+            x=~year,
+            y=~mean_usd, 
+            type = 'scatter', 
+            mode = 'lines')
+  })
+  
+  output$sp_forecast <- renderPlot({
+    rv$ticker_df
+    rv$predict <- rv$ticker_df %>% 
+      dplyr::select(ref.date,price.close) %>%
+      dplyr::rename(ds = ref.date,y = price.close)
+    
+    rv$prophet <- prophet(rv$predict)
+    
+    rv$future <- make_future_dataframe(rv$prophet, periods = 365)
+    
+    rv$forecast <- predict(rv$prophet, rv$future)
+    rv$forecast_plot <- plot(rv$prophet, rv$forecast)
+    rv$forecast_plot
+    # rv$prophet_plots <- prophet_plot_components(rv$prophet, rv$forecast)
+    # rv$prophet_plots
   })
   
   observeEvent(input$sim_run,{
